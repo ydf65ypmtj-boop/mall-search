@@ -298,6 +298,11 @@
           <p class="section-sub" id="recoSub">過去の検索から集めた商品です。</p>
           <div class="grid" id="recoGrid"></div>
         </section>
+        <section id="popSection" hidden>
+          <h2 class="section-title">人気商品</h2>
+          <p class="section-sub" id="popSub">いま人気のカテゴリから集めた商品です。</p>
+          <div class="grid" id="popGrid"></div>
+        </section>
         <div class="guide" id="guideBox" hidden>
           <b>使い方</b>
           <p>上の検索バーに探したいものを入れて検索すると、楽天市場・Yahoo!ショッピング・ヤフオクの価格をまとめて比べられます。気になる商品はカードの ☆ でお気に入りに残せます。検索した言葉はこの端末に保存され、次に開いたとき「過去の検索」と、履歴から選んだ「あなたへのおすすめ」が表示されます。</p>
@@ -846,15 +851,26 @@
 
       /* ---------- home view / results view ---------- */
       var recoItems = null; /* null = not fetched yet */
+      var popItems = null; /* null = not fetched yet */
+      var popLoading = false;
+      var POPULAR_WORDS = ["ワイヤレスイヤホン", "ランニングシューズ", "スマートウォッチ", "ゲーム", "リュック"];
+      var RECO_ENOUGH = 8; /* at/above this many recommendations, popular items are not needed */
       function showHomeView(){
         $("homeArea").hidden = false;
         $("resultsArea").hidden = true;
         $("controlsBar").hidden = true;
         renderHistoryChips();
-        var has = loadHistory().length > 0;
+        var histLen = loadHistory().length;
+        var has = histLen > 0;
         $("guideBox").hidden = has;
         if (!has) $("recoSection").hidden = true;
         else if (recoItems && recoItems.length) renderReco();
+        else $("recoSection").hidden = true;
+        if (popItems && popItems.length) renderPopular();
+        else $("popSection").hidden = true;
+        /* Few or no history entries: popular products are the main
+           content of the home view, so fetch them if not started yet. */
+        if (histLen < 3 && popItems === null && !popLoading) loadPopular();
       }
       function showResultsView(){
         $("homeArea").hidden = true;
@@ -867,9 +883,26 @@
          up to 3) through the same Yahoo relay, de-duplicate and mix the
          products. This is an automatic fetch: it never awards points,
          and a word that fails to load is skipped silently. */
+      function mixLists(lists, limit, seen){
+        var out = [];
+        var maxLen = 0;
+        lists.forEach(function(l){ if (l.length > maxLen) maxLen = l.length; });
+        for (var i = 0; i < maxLen && out.length < limit; i++){
+          lists.forEach(function(l){
+            if (out.length >= limit) return;
+            var p = l[i];
+            if (!p) return;
+            var key = p.url || (p.title + "|" + p.price);
+            if (seen[key]) return;
+            seen[key] = 1;
+            out.push(p);
+          });
+        }
+        return out;
+      }
       function loadRecommendations(){
         var hist = loadHistory();
-        if (!hist.length) return;
+        if (!hist.length) return Promise.resolve();
         var tops = hist.slice().sort(function(a, b){
           return ((b.count || 1) - (a.count || 1)) || ((b.last || 0) - (a.last || 0));
         }).slice(0, 3);
@@ -879,23 +912,57 @@
             return list.map(function(p){ var c = {}; for (var k in p) c[k] = p[k]; c.id = "reco-" + wi + "-" + p.id; return c; });
           }, function(){ return []; });
         });
-        Promise.all(jobs).then(function(lists){
-          var seen = {}, out = [];
-          var maxLen = 0;
-          lists.forEach(function(l){ if (l.length > maxLen) maxLen = l.length; });
-          for (var i = 0; i < maxLen && out.length < 12; i++){
-            lists.forEach(function(l){
-              if (out.length >= 12) return;
-              var p = l[i];
-              if (!p) return;
-              var key = p.url || (p.title + "|" + p.price);
-              if (seen[key]) return;
-              seen[key] = 1;
-              out.push(p);
-            });
-          }
-          recoItems = out;
+        return Promise.all(jobs).then(function(lists){
+          recoItems = mixLists(lists, 12, {});
           if (!$("homeArea").hidden) renderReco();
+          /* Recommendations did not fill up: top up with popular items. */
+          if (recoItems.length < RECO_ENOUGH && popItems === null && !popLoading) loadPopular();
+        });
+      }
+
+      /* ---------- popular products (for little / no history) ----------
+         Fetches real products for 3 of the popular words through the
+         same Yahoo relay, de-duplicates and mixes them. Automatic
+         fetch: never awards points. On total failure the section
+         simply stays hidden — no error is shown on the home view. */
+      function loadPopular(){
+        if (popItems !== null || popLoading) return Promise.resolve();
+        popLoading = true;
+        var words = POPULAR_WORDS.slice(0, 3);
+        $("popSub").textContent = "「" + words.join("」「") + "」など、いま人気のカテゴリから集めた商品です。";
+        var jobs = words.map(function(w, wi){
+          return fetchYahoo(w).then(function(list){
+            return list.map(function(p){ var c = {}; for (var k in p) c[k] = p[k]; c.id = "pop-" + wi + "-" + p.id; return c; });
+          }, function(){ return []; });
+        });
+        return Promise.all(jobs).then(function(lists){
+          popLoading = false;
+          /* Do not repeat products already shown as recommendations. */
+          var seen = {};
+          if (recoItems) recoItems.forEach(function(p){ seen[p.url || (p.title + "|" + p.price)] = 1; });
+          popItems = mixLists(lists, 12, seen);
+          if (!$("homeArea").hidden) renderPopular();
+        }, function(){
+          popLoading = false;
+          popItems = [];
+          $("popSection").hidden = true;
+        });
+      }
+      function renderPopular(){
+        if (!popItems || !popItems.length){ $("popSection").hidden = true; return; }
+        var html = "";
+        popItems.forEach(function(p){ html += recoCardHtml(p); });
+        $("popGrid").innerHTML = html;
+        $("popSection").hidden = false;
+        Array.prototype.forEach.call($("popGrid").querySelectorAll("[data-fav]"), function(btn){
+          btn.addEventListener("click", function(){
+            var id = btn.getAttribute("data-fav");
+            if (favs.has(id)) favs.delete(id); else favs.add(id);
+            syncFavCounts();
+            renderPopular();
+            renderReco();
+            renderGrid();
+          });
         });
       }
       function recoCardHtml(p){
@@ -938,6 +1005,7 @@
             if (favs.has(id)) favs.delete(id); else favs.add(id);
             syncFavCounts();
             renderReco();
+            renderPopular();
             renderGrid();
           });
         });
@@ -1113,13 +1181,17 @@
       render();
       renderAuthUI();
       initAuth();
-      /* On open: no automatic search. Show the home view — past-search
-         chips plus history-based recommendations when this device has
-         history, or the how-to guide when it does not. Recommendation
-         fetches go through fetchYahoo directly (never fetchLive with
-         award), so they earn no points. */
+      /* On open: no automatic search. Show the home view —
+         - history 0: popular products are the main content (plus the
+           popular-word chips and the how-to guide),
+         - history 1-2: history recommendations plus popular products,
+         - history 3+: history recommendations first; popular products
+           only top up when recommendations come back short.
+         Recommendation / popular fetches go through fetchYahoo
+         directly (never fetchLive with award), so they earn no points. */
       showHomeView();
       if (loadHistory().length) loadRecommendations();
+      if (loadHistory().length < 3) loadPopular();
     </script>
   </body>
 </html>
