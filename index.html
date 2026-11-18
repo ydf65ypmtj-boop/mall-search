@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>モール横断検索</title>
+    <style>
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2.25rem; }
+      * { box-sizing: border-box; }
+      :root{
+        --bg:#f1f1f1; --surface:#ffffff; --surface2:#f6f6f4; --ink:#1a1a1a; --ink2:#565959; --ink3:#8a8f8c;
+        --line:#dcdedd; --brand:#bf0000; --brand-dark:#9c0000; --accent:#0e7a5f; --accent-soft:#e6f4ee;
+        --price:#bf0000; --gold:#e8a33d; --star:#f5a623;
+        --rakuten:#bf0000; --yahoo:#e6002d; --auction:#e8760a; --amazon:#b96a00; --mercari:#0095a8;
+        --danger:#bf0000;
+        --radius:8px;
+        --shadow:0 1px 3px rgba(15,17,17,.12);
+      }
+      @media (prefers-color-scheme: dark){
+        :root{
+          --bg:#131516; --surface:#1e2122; --surface2:#26292a; --ink:#f2f2f0; --ink2:#b9bcba; --ink3:#8b908e;
+          --line:#3a3e3f; --accent:#2fbf9b; --accent-soft:#17352c; --price:#ff6b5e; --gold:#e8a33d;
+          --shadow:0 1px 3px rgba(0,0,0,.5);
+        }
+      }
+      html{ -webkit-text-size-adjust:100%; }
+      body{ margin:0; background:var(--bg); color:var(--ink);
+        font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,-apple-system,"Segoe UI",sans-serif;
+        line-height:1.55; }
+      a{ color:inherit; }
+      .wrap{ max-width:1240px; margin:0 auto; padding:0 14px 56px; }
+
+      /* ============ shop header ============ */
+      .shophead{ background:var(--brand); color:#fff; position:sticky; top:0; z-index:20; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+      .shophead-in{ max-width:1240px; margin:0 auto; padding:10px 14px 0; }
+      .headrow{ display:flex; align-items:center; gap:14px; }
+      .logo{ display:flex; align-items:center; gap:9px; flex:none; text-decoration:none; color:#fff; }
+      .logo .mark{ width:36px; height:36px; background:#fff; color:var(--brand); border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:19px; line-height:1; }
+      .logo .name{ font-size:20px; font-weight:900; letter-spacing:.02em; line-height:1.1; white-space:nowrap; }
+      .logo .name small{ display:block; font-size:10px; font-weight:700; letter-spacing:.14em; opacity:.85; }
+      .searchbar{ flex:1; display:flex; background:#fff; border-radius:6px; overflow:hidden; min-width:0; border:2px solid transparent; }
+      .searchbar:focus-within{ border-color:#febd69; }
+      .searchbar input{ flex:1; min-width:0; border:0; background:transparent; color:#111; font-size:16px; padding:9px 14px; outline:none; font-family:inherit; }
+      .searchbar input::placeholder{ color:#767676; }
+      .searchbar button{ border:0; background:#febd69; color:#333; font-weight:800; font-size:15px; padding:8px 24px; cursor:pointer; font-family:inherit; white-space:nowrap; display:flex; align-items:center; gap:6px; }
+      .searchbar button:hover{ background:#f3a847; }
+      .searchbar button svg{ width:18px; height:18px; }
+      .headicons{ display:flex; gap:4px; flex:none; }
+      .hicon{ background:none; border:0; color:#fff; cursor:pointer; font-family:inherit; display:flex; flex-direction:column; align-items:center; gap:1px; padding:5px 9px; border-radius:6px; font-size:10.5px; font-weight:700; position:relative; min-width:52px; }
+      .hicon:hover{ background:rgba(255,255,255,.14); }
+      .hicon svg{ width:22px; height:22px; }
+      .hicon .cnt{ position:absolute; top:0; right:6px; background:#febd69; color:#7a3b00; font-size:10.5px; font-weight:900; border-radius:999px; min-width:18px; height:18px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
+      .hicon[aria-pressed="true"]{ background:#fff; color:var(--brand); }
+      .ptbadge{ display:flex; align-items:center; gap:4px; align-self:center; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.45); color:#fff; border-radius:999px; padding:5px 11px; font-size:12px; font-weight:700; white-space:nowrap; }
+      .ptbadge b{ font-size:14.5px; font-weight:900; color:#febd69; font-variant-numeric:tabular-nums; }
+      .ptcol{ display:flex; flex-direction:column; align-items:flex-start; gap:3px; align-self:center; min-width:0; }
+      .ptrow{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+      .authbtn{ background:#fff; color:var(--brand); border:0; border-radius:999px; padding:6px 13px; font-size:12.5px; font-weight:900; cursor:pointer; font-family:inherit; white-space:nowrap; align-self:center; line-height:1.2; }
+      .authbtn:hover{ background:#ffe9c2; }
+      .authbtn:disabled{ opacity:.65; cursor:default; }
+      .ptnote{ font-size:11px; line-height:1.35; color:#fff; opacity:.95; font-weight:600; max-width:260px; }
+      .ptnote:empty{ display:none; }
+      @media (max-width:640px){ .ptbadge{ padding:4px 8px; font-size:11px; } .ptbadge b{ font-size:13px; } .authbtn{ padding:5px 10px; font-size:11.5px; } .ptnote{ font-size:10px; max-width:170px; } }
+      /* category / mall nav row */
+      .catnav{ display:flex; gap:2px; overflow-x:auto; padding:8px 0 10px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+      .catnav::-webkit-scrollbar{ display:none; }
+      .catnav button, .catnav a{ flex:none; background:none; border:0; color:#fff; font-family:inherit; font-size:13px; font-weight:700; padding:5px 11px; border-radius:999px; cursor:pointer; text-decoration:none; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; min-height:2rem; }
+      .catnav button:hover, .catnav a:hover{ background:rgba(255,255,255,.16); }
+      .catnav button[aria-pressed="true"]{ background:#fff; color:var(--brand); }
+      .catnav .cdot{ width:8px; height:8px; border-radius:2.5px; background:#fff; flex:none; }
+      .catnav button[aria-pressed="true"] .cdot{ box-shadow:0 0 0 1px rgba(0,0,0,.15); }
+      @media (max-width:640px){
+        .logo .name{ font-size:16px; } .logo .name small{ display:none; }
+        .logo .mark{ width:30px; height:30px; font-size:16px; }
+        .hicon{ min-width:42px; padding:5px 5px; } .hicon span.lbl{ display:none; }
+        .searchbar button{ padding:8px 14px; }
+        .headrow{ gap:8px; flex-wrap:wrap; }
+        .headicons{ flex-wrap:wrap; row-gap:2px; }
+        .searchbar{ order:3; flex:1 1 100%; }
+      }
+
+      /* ============ promo strip ============ */
+      .promo{ margin-top:14px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); display:flex; align-items:center; gap:14px; padding:12px 18px; box-shadow:var(--shadow); flex-wrap:wrap; }
+      .promo .tag{ background:var(--brand); color:#fff; font-weight:900; font-size:12px; border-radius:4px; padding:3px 9px; letter-spacing:.06em; flex:none; }
+      .promo b{ font-size:15.5px; }
+      .promo span{ color:var(--ink2); font-size:13px; }
+      .promo .go{ margin-left:auto; font-size:13px; font-weight:800; color:var(--brand); text-decoration:none; white-space:nowrap; }
+
+      /* ============ live status ============ */
+      .livestatus{ margin-top:12px; background:var(--accent-soft); border:1px solid var(--accent); border-radius:var(--radius); padding:9px 14px; font-size:13.5px; font-weight:700; display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+      .livestatus .dotlive{ width:9px; height:9px; border-radius:50%; background:var(--accent); flex:none; }
+      .livestatus.err{ background:var(--surface); border-color:var(--danger); }
+      .livestatus.err .dotlive{ background:var(--danger); }
+      .apistatus{ font-size:13.5px; font-weight:700; }
+      .apistatus.ok{ color:var(--accent); }
+      .apistatus.err{ color:var(--danger); }
+      .retrybtn{ border:1.5px solid var(--danger); background:var(--surface); color:var(--danger); border-radius:999px; padding:5px 15px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
+
+      /* ============ chips under search ============ */
+      .chips{ display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; align-items:center; }
+      .chips span{ font-size:12px; color:var(--ink2); font-weight:700; }
+      .chip{ border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:999px; padding:4px 13px; font-size:12.5px; cursor:pointer; font-family:inherit; min-height:2rem; }
+      .chip:hover{ border-color:var(--brand); color:var(--brand); }
+
+      /* ============ controls bar ============ */
+      .controls{ margin-top:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:10px 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; box-shadow:var(--shadow); }
+      .controls label{ font-size:12px; color:var(--ink2); font-weight:700; }
+      .controls select{ border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:6px; padding:5px 8px; font-size:13px; font-family:inherit; }
+      .controls .spacer{ flex:1; }
+      .favtoggle{ border:1px solid var(--line); background:var(--surface); color:var(--ink2); border-radius:999px; padding:5px 14px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit; }
+      .favtoggle[aria-pressed="true"]{ border-color:var(--gold); color:#9a6200; background:#fdf3e0; }
+      @media (prefers-color-scheme: dark){ .favtoggle[aria-pressed="true"]{ color:var(--gold); background:var(--surface2); } }
+
+      /* ============ section titles ============ */
+      .section-title{ font-size:19px; font-weight:900; margin:28px 0 3px; display:flex; align-items:center; gap:9px; }
+      .section-title::before{ content:""; width:5px; height:20px; background:var(--brand); border-radius:3px; flex:none; }
+      .section-sub{ color:var(--ink2); font-size:13px; margin:0 0 13px; }
+
+      /* ============ compare ============ */
+      .compare{ display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:12px; }
+      .cmp{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:15px 16px; box-shadow:var(--shadow); }
+      .cmp h3{ margin:0 0 2px; font-size:15.5px; }
+      .cmp .save{ color:var(--brand); font-weight:800; font-size:13px; margin:0 0 9px; }
+      .cmp table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+      .cmp td{ padding:7px 4px; border-top:1px solid var(--line); vertical-align:middle; }
+      .cmp td.price{ text-align:right; font-weight:800; color:var(--price); font-variant-numeric:tabular-nums; white-space:nowrap; font-size:15px; }
+      .cmp td.go{ text-align:right; width:66px; }
+      .cmp td.go a{ color:var(--brand); font-weight:700; text-decoration:none; font-size:12.5px; white-space:nowrap; }
+      .cmp tr.best td{ background:#fdf0f0; }
+      @media (prefers-color-scheme: dark){ .cmp tr.best td{ background:#33201f; } }
+      .mbadge{ display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:12.5px; }
+      .mbadge i{ width:8px; height:8px; border-radius:2.5px; display:inline-block; flex:none; }
+      .besttag{ font-size:10.5px; font-weight:900; color:#fff; background:var(--brand); border-radius:3px; padding:1px 6px; margin-left:6px; vertical-align:1px; white-space:nowrap; }
+
+      /* ============ product grid ============ */
+      .resultmeta{ display:flex; align-items:baseline; gap:10px; margin:28px 0 12px; flex-wrap:wrap; }
+      .resultmeta h2{ font-size:19px; margin:0; font-weight:900; display:flex; align-items:center; gap:9px; }
+      .resultmeta h2::before{ content:""; width:5px; height:20px; background:var(--brand); border-radius:3px; flex:none; }
+      .resultmeta span{ color:var(--ink2); font-size:13px; }
+      .livetag{ display:inline-block; font-size:11px; font-weight:900; color:#fff; background:var(--accent); border-radius:3px; padding:2px 8px; vertical-align:2px; }
+      .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; }
+      .card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; display:flex; flex-direction:column; box-shadow:var(--shadow); transition:box-shadow .15s ease; }
+      .card:hover{ box-shadow:0 4px 14px rgba(15,17,17,.18); }
+      .thumb{ aspect-ratio:1/0.92; background:#fff; display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden; }
+      .thumb svg{ width:42%; height:42%; }
+      .thumb img.prod{ width:100%; height:100%; object-fit:contain; background:#fff; }
+      .favbtn{ position:absolute; top:7px; right:7px; width:36px; height:36px; border-radius:50%; border:1px solid var(--line); background:rgba(255,255,255,.95); color:#9aa09c; font-size:17px; cursor:pointer; line-height:1; display:flex; align-items:center; justify-content:center; z-index:2; box-shadow:0 1px 4px rgba(0,0,0,.15); }
+      .favbtn.on{ color:var(--gold); border-color:var(--gold); }
+      .cheapest{ position:absolute; top:0; left:0; background:var(--brand); color:#fff; font-size:12px; font-weight:900; padding:4px 10px 4px 8px; border-radius:0 0 8px 0; z-index:2; letter-spacing:.03em; }
+      .cardbody{ padding:11px 13px 13px; display:flex; flex-direction:column; gap:4px; flex:1; }
+      .cardbody .top{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+      .cond{ font-size:10.5px; font-weight:700; border:1px solid var(--line); color:var(--ink2); border-radius:3px; padding:0 5px; line-height:1.7; }
+      .cond.used{ border-color:var(--auction); color:var(--auction); }
+      .cardbody h3{ margin:2px 0 0; font-size:14px; line-height:1.5; font-weight:600; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+      .cardbody h3 a{ text-decoration:none; }
+      .cardbody h3 a:hover{ color:var(--brand); text-decoration:underline; }
+      .shop{ color:var(--ink3); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .starline{ display:flex; align-items:center; gap:5px; font-size:12px; }
+      .stars{ color:var(--star); letter-spacing:1px; font-size:12.5px; }
+      .starline .rcount{ color:#007185; font-size:12px; }
+      @media (prefers-color-scheme: dark){ .starline .rcount{ color:#5fc4d4; } }
+      .badges{ display:flex; flex-wrap:wrap; gap:5px; margin-top:2px; }
+      .bdg{ font-size:10.5px; font-weight:800; border-radius:3px; padding:1.5px 7px; line-height:1.5; }
+      .bdg.free{ background:var(--accent-soft); color:var(--accent); border:1px solid var(--accent); }
+      .bdg.point{ background:#fdf3e0; color:#9a6200; border:1px solid var(--gold); }
+      @media (prefers-color-scheme: dark){ .bdg.point{ background:#2e2410; color:var(--gold); } }
+      .bdg.note{ background:var(--surface2); color:var(--ink2); border:1px solid var(--line); font-weight:600; }
+      .priceline{ margin-top:auto; padding-top:7px; }
+      .price{ font-size:23px; font-weight:900; color:var(--price); font-variant-numeric:tabular-nums; line-height:1.15; letter-spacing:-.01em; }
+      .price .yen-mark{ font-size:14px; font-weight:800; }
+      .price .tax{ font-size:11px; font-weight:600; color:var(--ink2); margin-left:3px; }
+      .ship{ font-size:12px; color:var(--ink2); display:block; margin-top:1px; }
+      .ship.free{ color:var(--accent); font-weight:700; }
+      .total{ font-size:11.5px; color:var(--ink3); display:block; }
+      .buybtn{ margin-top:9px; display:flex; align-items:center; justify-content:center; gap:6px; background:#ffd814; color:#0f1111; text-decoration:none; font-weight:800; font-size:13.5px; border:1px solid #fcd200; border-radius:999px; padding:9px 10px; min-height:2.6rem; }
+      .buybtn:hover{ background:#f7ca00; }
+      .empty{ background:var(--surface); border:1.5px dashed var(--line); border-radius:var(--radius); padding:38px 20px; text-align:center; color:var(--ink2); }
+      .empty b{ color:var(--ink); display:block; font-size:16px; margin-bottom:6px; }
+      .empty button{ margin-top:12px; border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:7px 18px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--ink); }
+
+      /* ============ link-only panels ============ */
+      .linkonly{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+      @media (max-width:640px){ .linkonly{ grid-template-columns:1fr; } }
+      .lo{ border-radius:var(--radius); padding:18px; color:#fff; display:flex; flex-direction:column; gap:6px; box-shadow:var(--shadow); }
+      .lo b{ font-size:17px; }
+      .lo p{ margin:0; font-size:13.5px; opacity:.92; }
+      .lo a{ margin-top:10px; align-self:flex-start; background:#fff; font-weight:800; font-size:14px; text-decoration:none; border-radius:999px; padding:9px 20px; min-height:2.6rem; display:inline-flex; align-items:center; }
+      .lo.amazon{ background:#232f3e; } .lo.amazon a{ color:#232f3e; }
+      .lo.mercari{ background:#00707e; } .lo.mercari a{ color:#00707e; }
+
+      /* ============ roadmap ============ */
+      .steps{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+      @media (max-width:820px){ .steps{ grid-template-columns:1fr; } }
+      .step{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px; }
+      .step .num{ font-size:12px; font-weight:800; color:var(--brand); letter-spacing:.08em; }
+      .step h3{ margin:5px 0 6px; font-size:15.5px; }
+      .step p{ margin:0; font-size:13.5px; color:var(--ink2); }
+      .step .state{ display:inline-block; margin-top:10px; font-size:11.5px; font-weight:800; border-radius:999px; padding:2px 10px; }
+      .state.done{ background:var(--accent-soft); color:var(--accent); }
+      .state.next{ background:var(--surface2); color:var(--ink2); }
+      footer{ margin-top:44px; border-top:1px solid var(--line); padding-top:16px; color:var(--ink3); font-size:12.5px; }
+
+      /* ============ point toast ============ */
+      .toast{ position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(14px); background:#1d1f20; color:#fff; border:1px solid rgba(255,255,255,.22); font-size:14px; font-weight:700; padding:11px 20px; border-radius:999px; box-shadow:0 6px 22px rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease; z-index:60; white-space:nowrap; }
+      .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+      @media (prefers-reduced-motion: reduce){ .toast{ transition:none; } }
+
+      /* ============ phone: 2-column product grid ============ */
+      @media (max-width:560px){
+        .grid{ grid-template-columns:repeat(2,1fr); gap:8px; }
+        .compare{ grid-template-columns:1fr; }
+        .price{ font-size:19px; }
+        .cardbody{ padding:9px 10px 11px; }
+        .cardbody h3{ font-size:13px; }
+        .buybtn{ font-size:12.5px; padding:8px 6px; }
+        .promo{ padding:10px 13px; gap:9px; }
+        .promo .go{ margin-left:0; }
+        .wrap{ padding:0 10px 48px; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <header class="shophead">
+      <div class="shophead-in">
+        <div class="headrow">
+          <a class="logo" href="#" onclick="return false" aria-label="モール横断検索 トップ">
+            <span class="mark">モ</span>
+            <span class="name">モール横断検索<small>MALL SEARCH</small></span>
+          </a>
+          <form class="searchbar" id="searchForm" role="search">
+            <input id="q" type="search" placeholder="何をお探しですか？ 例：ワイヤレスイヤホン" autocomplete="off" aria-label="商品を検索" />
+            <button type="submit" aria-label="検索">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+              検索
+            </button>
+          </form>
+          <div class="headicons">
+            <div class="ptcol">
+              <div class="ptrow">
+                <span class="ptbadge" id="pointBadge" role="status" aria-label="ポイント残高">Cubeポイント <b id="pointBalance">0</b> pt</span>
+                <button class="authbtn" id="authBtn" type="button">ログイン</button>
+              </div>
+              <span class="ptnote" id="pointNote">ログインするとCubeポイントが貯まります</span>
+            </div>
+            <button class="hicon" id="headFav" type="button" aria-pressed="false" aria-label="お気に入りだけ表示">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.7C6.4 17 3 13.6 3 9.9 3 7.2 5 5 7.6 5c1.7 0 3.4 1 4.4 2.6C13 6 14.7 5 16.4 5 19 5 21 7.2 21 9.9c0 3.7-3.4 7.1-9 10.8z"/></svg>
+              <span class="lbl">お気に入り</span>
+              <span class="cnt" id="headFavCount">0</span>
+            </button>
+            <a class="hicon" href="#compareSection" aria-label="価格くらべへ移動">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2" transform="translate(-1 0)"/></svg>
+              <span class="lbl">価格くらべ</span>
+            </a>
+          </div>
+        </div>
+        <nav class="catnav" id="mallPills" aria-label="モール・カテゴリで絞り込み"></nav>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+      <div class="promo">
+        <span class="tag">横断検索</span>
+        <b>5つのモールの価格をまとめて比較</b>
+        <span>楽天市場・Yahoo!ショッピング・ヤフオクの価格を並べて、いちばん安いところから買えます。</span>
+        <a class="go" href="#compareSection">価格くらべを見る →</a>
+      </div>
+
+      <div class="livestatus" id="liveStatus" role="status">
+        <span class="dotlive" aria-hidden="true"></span>
+        <span class="apistatus" id="apiStatus">iMacサーバー経由で Yahoo!ショッピングに接続中…</span>
+        <button class="retrybtn" id="retryBtn" type="button" hidden>もう一度試す</button>
+      </div>
+
+      <div class="chips" id="chips">
+        <span>人気の検索ワード</span>
+        <button class="chip" type="button" data-kw="ワイヤレスイヤホン">ワイヤレスイヤホン</button>
+        <button class="chip" type="button" data-kw="ランニングシューズ">ランニングシューズ</button>
+        <button class="chip" type="button" data-kw="スマートウォッチ">スマートウォッチ</button>
+        <button class="chip" type="button" data-kw="ゲーム">ゲーム</button>
+        <button class="chip" type="button" data-kw="リュック">リュック</button>
+      </div>
+
+      <nav id="mallStrip" aria-label="対応モール" hidden></nav>
+
+      <div class="controls">
+        <label for="condSel">状態</label>
+        <select id="condSel">
+          <option value="all">すべて</option>
+          <option value="new">新品のみ</option>
+          <option value="used">中古・オークション</option>
+        </select>
+        <label for="priceSel">価格</label>
+        <select id="priceSel">
+          <option value="0">上限なし</option>
+          <option value="3000">3,000円まで</option>
+          <option value="5000">5,000円まで</option>
+          <option value="10000">10,000円まで</option>
+          <option value="15000">15,000円まで</option>
+        </select>
+        <label for="sortSel">並び順</label>
+        <select id="sortSel">
+          <option value="reco">おすすめ順</option>
+          <option value="cheap">価格が安い順</option>
+          <option value="expensive">価格が高い順</option>
+          <option value="rating">評価が高い順</option>
+        </select>
+        <span class="spacer"></span>
+        <button class="favtoggle" id="favToggle" type="button" aria-pressed="false">★ お気に入りだけ (<span id="favCount">0</span>)</button>
+      </div>
+
+      <section id="compareSection">
+        <h2 class="section-title">同じ商品の価格くらべ</h2>
+        <p class="section-sub">送料込みの合計で比べています。いちばん安いモールには「最安」マークが付きます。</p>
+        <div class="compare" id="compareGrid"></div>
+      </section>
+
+      <div class="resultmeta">
+        <h2 id="resultTitle">商品一覧</h2>
+        <span id="resultCount"></span>
+      </div>
+      <div class="grid" id="grid"></div>
+      <div class="empty" id="emptyState" hidden>
+        <b>条件に合う商品が見つかりませんでした</b>
+        キーワードや絞り込みを変えて、もう一度探してみてください。下のAmazon・メルカリでも同じ言葉で探せます。
+        <br /><button type="button" id="resetBtn">絞り込みをリセット</button>
+      </div>
+
+      <h2 class="section-title">Amazon・メルカリでも探す</h2>
+      <p class="section-sub">この2つはサイト内に商品を表示できないため、公式の検索結果ページへ直接飛びます。いま入力している検索ワードがそのまま引き継がれます。</p>
+      <div class="linkonly">
+        <div class="lo amazon">
+          <b>Amazon.co.jp</b>
+          <p>新品の品ぞろえが広いモール。公式APIの利用条件があるため、このサイトでは検索リンク方式です。</p>
+          <a id="amazonLink" href="https://www.amazon.co.jp/s?k=" target="_blank" rel="noopener">Amazonで探す →</a>
+        </div>
+        <div class="lo mercari">
+          <b>メルカリ</b>
+          <p>個人出品の中古が中心のフリマ。公式APIがないため、このサイトでは検索リンク方式です。</p>
+          <a id="mercariLink" href="https://jp.mercari.com/search?keyword=" target="_blank" rel="noopener">メルカリで探す →</a>
+        </div>
+      </div>
+
+      <h2 class="section-title">本物の商品データへの道のり</h2>
+      <p class="section-sub">Yahoo!ショッピングは iMac の中継サーバー経由で取得します。開くと自動で中継に接続し、本物の商品・価格・画像を表示します。楽天はキーが取れたら同じ中継に接続します。</p>
+      <div class="steps">
+        <div class="step">
+          <span class="num">STEP 1</span>
+          <h3>検索サイトの試作</h3>
+          <p>横断検索・価格くらべ・絞り込み・並び替えの画面と動きを作る段階。サンプル商品で動作します。</p>
+          <span class="state done">完了</span>
+        </div>
+        <div class="step">
+          <span class="num">STEP 2</span>
+          <h3>楽天・Yahoo! の公式APIに接続</h3>
+          <p>Yahoo!ショッピングは iMac 上の中継サーバー経由で接続済みです。Client ID は iMac 側にだけ置き、このページには置いていません。楽天はサイトが空いたらアプリIDとアクセスキーを取って、同じ中継に接続します。</p>
+          <span class="state done">Yahoo は iMac経由で接続済み・楽天はキー待ち</span>
+        </div>
+        <div class="step">
+          <span class="num">STEP 3</span>
+          <h3>紹介料とポイントの原資に</h3>
+          <p>このサイト経由で買われると紹介料が入る仕組み（アフィリエイト）にできます。その紹介料は、将来のCubeポイントの原資にできます。</p>
+          <span class="state next">将来フェーズ</span>
+        </div>
+      </div>
+
+      <footer>
+        注文・決済は各モールの商品ページで行います（決済までこのサイト内で完結する形は各モールの規約上できません）。Yahoo!ショッピングは iMac サーバー経由で本物データを取得し、取得できたときだけ本物の商品・価格を表示します。iMac が止まっているなどで取得できない間は、楽天・ヤフオク分と同じくサンプルデータです。
+      </footer>
+    </div>
+
+    <div class="toast" id="pointToast" role="status" aria-live="polite"></div>
+
+    <script>
+      "use strict";
+      /* ---------- mall master ---------- */
+      var MALLS = {
+        rakuten: { name: "楽天市場", color: "#bf0000", kind: "api",
+          searchUrl: function(q){ return "https://search.rakuten.co.jp/search/mall/" + encodeURIComponent(q) + "/"; } },
+        yahoo: { name: "Yahoo!ショッピング", color: "#e6002d", kind: "api",
+          searchUrl: function(q){ return "https://shopping.yahoo.co.jp/search?p=" + encodeURIComponent(q); } },
+        auction: { name: "ヤフオク", color: "#e8760a", kind: "api",
+          searchUrl: function(q){ return "https://auctions.yahoo.co.jp/search/search?p=" + encodeURIComponent(q); } },
+        amazon: { name: "Amazon", color: "#b96a00", kind: "link",
+          searchUrl: function(q){ return "https://www.amazon.co.jp/s?k=" + encodeURIComponent(q); } },
+        mercari: { name: "メルカリ", color: "#0095a8", kind: "link",
+          searchUrl: function(q){ return "https://jp.mercari.com/search?keyword=" + encodeURIComponent(q); } }
+      };
+
+      /* ---------- product icons (inline SVG, stroke style) ---------- */
+      function icon(kind, color){
+        var p = {
+          earbuds: '<rect x="18" y="34" width="28" height="22" rx="6"/><path d="M24 34v-8a6 6 0 0 1 12 0M40 34v-8a6 6 0 0 1 12 0" transform="translate(-14 0)"/><circle cx="25" cy="45" r="2.4"/><circle cx="39" cy="45" r="2.4"/>',
+          shoe: '<path d="M8 42c8 1 14-1 20-6l6-5c3 4 8 7 14 8 4 .7 6 2 6 5v4H8z"/><path d="M8 48h48"/><path d="M36 36l4 3M32 39l4 3"/>',
+          watch: '<rect x="20" y="18" width="24" height="28" rx="7"/><path d="M27 18v-6h10v6M27 46v6h10v-6"/><path d="M32 27v6l4 3"/>',
+          gamepad: '<rect x="8" y="24" width="48" height="22" rx="11"/><path d="M20 31v8M16 35h8"/><circle cx="42" cy="32" r="2.2"/><circle cx="47" cy="38" r="2.2"/>',
+          bag: '<path d="M18 24h28l3 30H15z"/><path d="M24 24v-4a8 8 0 0 1 16 0v4"/><path d="M24 36h16v10H24z"/>',
+          mug: '<path d="M14 22h30v20a6 6 0 0 1-6 6H20a6 6 0 0 1-6-6z"/><path d="M44 27h4a6 6 0 0 1 0 12h-4"/><path d="M22 14c0 3-3 3-3 6M32 14c0 3-3 3-3 6"/>',
+          book: '<path d="M14 12h22a6 6 0 0 1 6 6v34H20a6 6 0 0 1-6-6z"/><path d="M14 46a6 6 0 0 1 6-6h22"/><path d="M22 22h12"/>',
+          lamp: '<path d="M32 10l10 18H22z"/><path d="M32 28v14M22 54h20M32 42v6"/>',
+          bottle: '<path d="M26 10h12M28 10v8l-4 6v26a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V24l-4-6v-8"/><path d="M24 36h16"/>'
+        };
+        return '<svg viewBox="0 0 64 64" fill="none" stroke="' + color + '" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (p[kind] || p.bag) + "</svg>";
+      }
+
+      /* ---------- sample catalog ---------- */
+      var PRODUCTS = [
+        { id:1,  group:"earbuds", title:"ワイヤレスイヤホン ノイズキャンセリング Bluetooth 5.3", mall:"rakuten", shop:"サウンドショップ楽", price:6980, ship:0, cond:"new", rating:4.6, reviews:2314, icon:"earbuds", hue:"#e8f3ee", note:"ポイント10倍・クーポンで500円OFF" },
+        { id:2,  group:"earbuds", title:"完全ワイヤレスイヤホン ANC対応 防水IPX5", mall:"yahoo", shop:"Yahoo!店 デジモノ館", price:7480, ship:0, cond:"new", rating:4.5, reviews:1087, icon:"earbuds", hue:"#e8f3ee", note:"PayPayポイント5%還元" },
+        { id:3,  group:"earbuds", title:"ワイヤレスイヤホン 中古・美品 ケース付き", mall:"auction", shop:"出品者：リユース堂", price:3980, ship:700, cond:"used", rating:0, reviews:0, icon:"earbuds", hue:"#fdf0e2", note:"現在価格・入札12件・残り2日" },
+        { id:4,  group:"shoes", title:"ランニングシューズ 軽量 メッシュ 25.0〜28.0cm", mall:"rakuten", shop:"スポーツ工房", price:8980, ship:550, cond:"new", rating:4.4, reviews:862, icon:"shoe", hue:"#eef0fb", note:"あす楽対応" },
+        { id:5,  group:"shoes", title:"ランニングシューズ クッションソール 通気性", mall:"yahoo", shop:"Yahoo!店 ランフィット", price:8450, ship:0, cond:"new", rating:4.7, reviews:1543, icon:"shoe", hue:"#eef0fb", note:"送料無料・ポイント8倍" },
+        { id:6,  group:"shoes", title:"ランニングシューズ 26.5cm 中古・使用感あり", mall:"auction", shop:"出品者：走る人", price:5200, ship:800, cond:"used", rating:0, reviews:0, icon:"shoe", hue:"#fdf0e2", note:"即決価格・入札3件" },
+        { id:7,  group:"watch", title:"スマートウォッチ 心拍・睡眠計測 防水 大画面", mall:"rakuten", shop:"ガジェット市場", price:12800, ship:0, cond:"new", rating:4.3, reviews:976, icon:"watch", hue:"#f3eefb", note:"クーポン利用で1,000円OFF" },
+        { id:8,  group:"watch", title:"スマートウォッチ GPS内蔵 通話対応", mall:"yahoo", shop:"Yahoo!店 ウェアラブル本舗", price:11980, ship:660, cond:"new", rating:4.5, reviews:640, icon:"watch", hue:"#f3eefb", note:"PayPayポイント10%還元" },
+        { id:9,  group:"gamepad", title:"ワイヤレス ゲームコントローラー 振動・連射機能付き", mall:"rakuten", shop:"ゲームパラダイス", price:7678, ship:0, cond:"new", rating:4.6, reviews:3205, icon:"gamepad", hue:"#eaf6f8", note:"ポイント5倍" },
+        { id:10, group:"gamepad", title:"ゲームコントローラー 中古・動作確認済み", mall:"auction", shop:"出品者：ゲーム買取王", price:4500, ship:600, cond:"used", rating:0, reviews:0, icon:"gamepad", hue:"#fdf0e2", note:"現在価格・入札8件・残り1日" },
+        { id:11, group:"bag", title:"リュックサック 25L 撥水 PCポケット付き 通学・通勤", mall:"yahoo", shop:"Yahoo!店 バッグ工房", price:5980, ship:0, cond:"new", rating:4.8, reviews:2210, icon:"bag", hue:"#fbf3e4", note:"送料無料" },
+        { id:12, group:"bag", title:"ビジネスリュック 20L 防水 多機能ポケット", mall:"rakuten", shop:"バッグの店マルイチ", price:6480, ship:0, cond:"new", rating:4.5, reviews:1330, icon:"bag", hue:"#fbf3e4", note:"ポイント10倍" },
+        { id:13, group:"mug", title:"ステンレスタンブラー 500ml 保温保冷 真空断熱", mall:"rakuten", shop:"キッチン日和", price:1980, ship:490, cond:"new", rating:4.7, reviews:5210, icon:"mug", hue:"#eef7ea", note:"2個セットで送料無料" },
+        { id:14, group:"book", title:"プログラミング入門書 ゼロから学ぶやさしい解説本", mall:"yahoo", shop:"Yahoo!店 ブックライン", price:2640, ship:350, cond:"new", rating:4.4, reviews:318, icon:"book", hue:"#fdeaea", note:"ポイント3倍" },
+        { id:15, group:"lamp", title:"LEDデスクライト 調光・調色 USB充電式", mall:"rakuten", shop:"くらし照明館", price:3480, ship:0, cond:"new", rating:4.5, reviews:1876, icon:"lamp", hue:"#fdf6da", note:"あす楽対応・送料無料" },
+        { id:16, group:"bottle", title:"水筒 1リットル 直飲み ワンタッチ ステンレスボトル", mall:"yahoo", shop:"Yahoo!店 アウトドア生活", price:2280, ship:0, cond:"new", rating:4.6, reviews:2950, icon:"bottle", hue:"#e8f4fb", note:"送料無料・ポイント5倍" }
+      ];
+      var GROUP_NAMES = { earbuds:"ワイヤレスイヤホン", shoes:"ランニングシューズ", watch:"スマートウォッチ", gamepad:"ゲームコントローラー", bag:"リュック" };
+
+      /* ---------- state ---------- */
+      var state = { q:"", mall:"all", cond:"all", price:0, sort:"reco", favOnly:false };
+      var favs = new Set();
+      /* Yahoo is fetched through the relay server running on the user's iMac.
+         The Client ID lives only on the iMac — this page holds just the relay URL.
+         live = fetched real products, or null while on samples. Rakuten has no key yet. */
+      var RELAY_YAHOO_URL = "https://imac.tail9ed76a.ts.net:8445/yahoo";
+      var keys = { rakutenId:"", rakutenKey:"" };
+      var live = null;
+      var liveQuery = "";
+
+      /* ---------- Cubeポイント（Cubeと共通のSupabase残高） ----------
+         Balance lives in the shared Supabase project (points_balance /
+         points_ledger, RLS: own rows only). Grants go through the
+         earn_points RPC, which enforces +1pt, the 3/day cap and
+         idempotency server-side. No in-page ledger is kept. */
+      var SUPABASE_URL = "https://glvlbgylnxxkyjvcaeym.supabase.co";
+      var SUPABASE_PUBLISHABLE_KEY = "sb_publishable_8VCMVdBvYivEFVNA841N8g_EE7c8H3T";
+      var POINT_DAILY_CAP = 3;
+      var POINT_COOLDOWN_MS = 60000;
+      var supabaseClient = null;
+      var currentUser = null;
+      var currentBalance = 0;
+      var lastAwardAt = 0;
+      var capReachedToday = false;
+
+      function jstDateStr(d){
+        var j = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+        var p = function(n){ return (n < 10 ? "0" : "") + n; };
+        return j.getUTCFullYear() + "-" + p(j.getUTCMonth() + 1) + "-" + p(j.getUTCDate());
+      }
+      function jstDayRangeISO(d){
+        var j = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+        var startUtc = Date.UTC(j.getUTCFullYear(), j.getUTCMonth(), j.getUTCDate()) - 9 * 60 * 60 * 1000;
+        return { start: new Date(startUtc).toISOString(), end: new Date(startUtc + 24 * 60 * 60 * 1000).toISOString() };
+      }
+      function normalizeQuery(q){
+        return String(q == null ? "" : q).trim().replace(/\s+/g, " ").toLowerCase();
+      }
+      function hashStr(s){
+        var h = 0x811c9dc5;
+        for (var i = 0; i < s.length; i++){
+          h ^= s.charCodeAt(i);
+          h = (h * 0x01000193) >>> 0;
+        }
+        return ("0000000" + h.toString(16)).slice(-8);
+      }
+      function renderPointBadge(){
+        $("pointBalance").textContent = currentUser ? currentBalance : 0;
+      }
+      function renderPointNote(){
+        var el = $("pointNote");
+        if (!el) return;
+        if (!currentUser) el.textContent = "ログインするとCubeポイントが貯まります";
+        else if (capReachedToday) el.textContent = "今日のポイントは上限まで貯まりました";
+        else el.textContent = "";
+      }
+      function renderAuthUI(){
+        var btn = $("authBtn");
+        if (btn){
+          btn.textContent = currentUser ? "ログアウト" : "ログイン";
+          btn.disabled = false;
+        }
+        renderPointBadge();
+        renderPointNote();
+      }
+      var toastTimer = null;
+      function showPointToast(msg){
+        var el = $("pointToast");
+        el.textContent = msg;
+        el.classList.add("show");
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 3200);
+      }
+      function fetchBalance(){
+        if (!supabaseClient || !currentUser) return Promise.resolve(0);
+        return supabaseClient.from("points_balance").select("balance").eq("user_id", currentUser.id).maybeSingle()
+          .then(function(res){
+            if (res && !res.error && res.data && typeof res.data.balance === "number") currentBalance = res.data.balance;
+            else if (res && !res.error && !res.data) currentBalance = 0;
+            renderPointBadge();
+            return currentBalance;
+          }, function(){ renderPointBadge(); return currentBalance; });
+      }
+      function fetchTodaySearchCount(){
+        if (!supabaseClient || !currentUser) return Promise.resolve(0);
+        var range = jstDayRangeISO(new Date());
+        return supabaseClient.from("points_ledger").select("id", { count: "exact", head: true })
+          .eq("user_id", currentUser.id).eq("reason_code", "mall_search")
+          .gte("created_at", range.start).lt("created_at", range.end)
+          .then(function(res){
+            if (res && !res.error && typeof res.count === "number") return res.count;
+            return 0;
+          }, function(){ return 0; });
+      }
+      /* Award 1 pt for a completed user-initiated search via the RPC.
+         - Not logged in: never awarded.
+         - Cooldown: no award within 60s of the previous actual grant.
+         - Toast only when the balance actually increased (idempotent
+           replays return the same balance and stay silent).
+         - daily_cap_reached: no toast; a small note appears by the badge.
+         - Any other RPC failure: silent, search results unaffected. */
+      function tryAwardSearchPoint(rawQuery){
+        if (!supabaseClient || !currentUser) return Promise.resolve(false);
+        var now = Date.now();
+        if (lastAwardAt && now - lastAwardAt < POINT_COOLDOWN_MS) return Promise.resolve(false);
+        var norm = normalizeQuery(rawQuery);
+        var key = "mall_search:" + jstDateStr(new Date(now)) + ":" + hashStr(norm);
+        var prevBalance = currentBalance;
+        return supabaseClient.rpc("earn_points", { p_reason: "mall_search", p_idempotency_key: key, p_metadata: {} })
+          .then(function(res){
+            if (res && res.error){
+              var msg = (res.error.message || "") + " " + (res.error.details || "") + " " + (res.error.code || "");
+              if (msg.indexOf("daily_cap_reached") !== -1){
+                capReachedToday = true;
+                renderPointNote();
+              }
+              return false;
+            }
+            var newBalance = (res && typeof res.data === "number") ? res.data : prevBalance;
+            if (newBalance > prevBalance){
+              currentBalance = newBalance;
+              lastAwardAt = Date.now();
+              renderPointBadge();
+              return fetchTodaySearchCount().then(function(cnt){
+                var n = cnt > 0 ? cnt : Math.min(POINT_DAILY_CAP, prevBalance + 1);
+                showPointToast("+1 pt たまりました（今日 " + n + "/" + POINT_DAILY_CAP + "）");
+                return true;
+              });
+            }
+            currentBalance = newBalance;
+            renderPointBadge();
+            return false;
+          }, function(){ return false; });
+      }
+      function loadSupabaseClient(){
+        if (supabaseClient) return Promise.resolve(supabaseClient);
+        return import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm").then(function(mod){
+          var createClient = mod.createClient || (mod.default && mod.default.createClient);
+          supabaseClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+          return supabaseClient;
+        });
+      }
+      function initAuth(){
+        var btn = $("authBtn");
+        if (btn) btn.disabled = true;
+        loadSupabaseClient().then(function(client){
+          return client.auth.getSession().then(function(res){
+            var session = res && res.data ? res.data.session : null;
+            currentUser = session ? session.user : null;
+            renderAuthUI();
+            if (currentUser) fetchBalance();
+            client.auth.onAuthStateChange(function(_event, session2){
+              currentUser = session2 ? session2.user : null;
+              if (!currentUser){ currentBalance = 0; capReachedToday = false; }
+              renderAuthUI();
+              if (currentUser) fetchBalance();
+            });
+          });
+        }).catch(function(){
+          /* Supabase unreachable: stay logged out; search keeps working. */
+          currentUser = null;
+          renderAuthUI();
+        });
+        if (btn){
+          btn.addEventListener("click", function(){
+            if (currentUser){
+              if (!supabaseClient) return;
+              btn.disabled = true;
+              supabaseClient.auth.signOut().then(function(){
+                currentUser = null; currentBalance = 0; capReachedToday = false;
+                renderAuthUI();
+              }, function(){ renderAuthUI(); });
+            } else {
+              loadSupabaseClient().then(function(client){
+                return client.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + location.pathname } });
+              }).catch(function(){});
+            }
+          });
+        }
+      }
+
+      var $ = function(id){ return document.getElementById(id); };
+      var yen = function(n){ return "¥" + n.toLocaleString("ja-JP"); };
+      var total = function(p){ return p.price + (p.ship || 0); };
+      var dataset = function(){ return live || PRODUCTS; };
+      var esc = function(s){ return s.replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); };
+
+      function matches(p){
+        if (state.mall !== "all" && p.mall !== state.mall) return false;
+        if (state.cond !== "all" && p.cond !== state.cond) return false;
+        if (state.price > 0 && total(p) > state.price) return false;
+        if (state.favOnly && !favs.has(String(p.id))) return false;
+        if (state.q && !live){
+          var hay = (p.title + " " + (GROUP_NAMES[p.group] || "") + " " + p.shop).toLowerCase();
+          var words = state.q.toLowerCase().split(/\s+/).filter(Boolean);
+          for (var i = 0; i < words.length; i++){ if (hay.indexOf(words[i]) === -1) return false; }
+        }
+        return true;
+      }
+
+      function cheapestIds(){
+        var best = {};
+        PRODUCTS.forEach(function(p){
+          if (!p.group) return;
+          if (!best[p.group] || total(p) < total(best[p.group])) best[p.group] = p;
+        });
+        var set = new Set();
+        Object.keys(best).forEach(function(g){ if (PRODUCTS.filter(function(p){return p.group===g;}).length > 1) set.add(best[g].id); });
+        return set;
+      }
+
+      function stars(r){
+        if (!r) return "";
+        var full = Math.round(r);
+        var s = "";
+        for (var i = 0; i < 5; i++) s += i < full ? "★" : "☆";
+        return '<span class="stars">' + s + "</span>";
+      }
+
+      function renderMalls(){
+        /* The old mall strip is replaced by the header category nav;
+           keep this hook so the mall quick-links stay available in the nav. */
+        var q = state.q || "ワイヤレスイヤホン";
+        var html = "";
+        Object.keys(MALLS).forEach(function(key){
+          var m = MALLS[key];
+          if (m.kind !== "link") return;
+          html += '<a href="' + m.searchUrl(q) + '" target="_blank" rel="noopener">' + m.name + "で探す</a>";
+        });
+        $("mallStrip").innerHTML = html;
+      }
+
+      function renderPills(){
+        var counts = { all: dataset().length };
+        dataset().forEach(function(p){ counts[p.mall] = (counts[p.mall] || 0) + 1; });
+        var html = '<button type="button" data-mall="all" aria-pressed="' + (state.mall === "all") + '">すべてのモール (' + counts.all + ")</button>";
+        ["rakuten","yahoo","auction"].forEach(function(key){
+          var m = MALLS[key];
+          html += '<button type="button" data-mall="' + key + '" aria-pressed="' + (state.mall === key) + '"><span class="cdot" style="background:' + m.color + '"></span>' + m.name + " (" + (counts[key] || 0) + ")</button>";
+        });
+        var q = state.q || "ワイヤレスイヤホン";
+        html += '<a href="' + MALLS.amazon.searchUrl(q) + '" target="_blank" rel="noopener"><span class="cdot" style="background:' + MALLS.amazon.color + '"></span>Amazon</a>';
+        html += '<a href="' + MALLS.mercari.searchUrl(q) + '" target="_blank" rel="noopener"><span class="cdot" style="background:' + MALLS.mercari.color + '"></span>メルカリ</a>';
+        $("mallPills").innerHTML = html;
+        Array.prototype.forEach.call($("mallPills").querySelectorAll("[data-mall]"), function(btn){
+          btn.addEventListener("click", function(){ state.mall = btn.getAttribute("data-mall"); render(); });
+        });
+      }
+
+      function renderCompare(){
+        if (live){ $("compareGrid").innerHTML = ""; $("compareSection").style.display = "none"; return; }
+        var groups = {};
+        PRODUCTS.forEach(function(p){
+          if (state.q){
+            var hay = (p.title + " " + (GROUP_NAMES[p.group] || "")).toLowerCase();
+            var words = state.q.toLowerCase().split(/\s+/).filter(Boolean);
+            var ok = words.every(function(w){ return hay.indexOf(w) !== -1; });
+            if (!ok) return;
+          }
+          (groups[p.group] = groups[p.group] || []).push(p);
+        });
+        var html = "";
+        Object.keys(groups).forEach(function(g){
+          var items = groups[g].slice().sort(function(a,b){ return total(a) - total(b); });
+          var malls = new Set(items.map(function(p){ return p.mall; }));
+          if (items.length < 2 || malls.size < 2) return;
+          var save = total(items[items.length - 1]) - total(items[0]);
+          html += '<div class="cmp"><h3>' + esc(GROUP_NAMES[g] || items[0].title) + '</h3><p class="save">モールで最大 ' + yen(save) + ' の差</p><table>';
+          items.forEach(function(p, i){
+            var m = MALLS[p.mall];
+            html += '<tr class="' + (i === 0 ? "best" : "") + '"><td><span class="mbadge"><i style="background:' + m.color + '"></i>' + m.name + "</span>" + (i === 0 ? '<span class="besttag">最安</span>' : "") + (p.cond === "used" ? ' <span class="cond used">中古</span>' : "") + '</td><td class="price">' + yen(total(p)) + '</td><td class="go"><a href="' + m.searchUrl(p.title) + '" target="_blank" rel="noopener">見に行く →</a></td></tr>';
+          });
+          html += "</table></div>";
+        });
+        $("compareGrid").innerHTML = html;
+        $("compareSection").style.display = html ? "" : "none";
+      }
+
+      function renderGrid(){
+        var list = dataset().filter(matches);
+        if (state.sort === "cheap") list.sort(function(a,b){ return total(a) - total(b); });
+        if (state.sort === "expensive") list.sort(function(a,b){ return total(b) - total(a); });
+        if (state.sort === "rating") list.sort(function(a,b){ return b.rating - a.rating; });
+        if (state.sort === "reco") list.sort(function(a,b){ return b.reviews - a.reviews; });
+        var cheap = live ? new Set() : cheapestIds();
+        $("resultTitle").innerHTML = "商品一覧" + (live ? '<span class="livetag">本物データ</span>' : "");
+        $("resultCount").textContent = list.length + "件" + (live ? "（「" + liveQuery + "」の本物データ）" : (state.q ? "（「" + state.q + "」）" : ""));
+        $("emptyState").hidden = list.length > 0;
+        var html = "";
+        list.forEach(function(p){
+          var m = MALLS[p.mall];
+          var fid = String(p.id);
+          var url = p.url || m.searchUrl(p.title);
+          var thumbInner = p.img
+            ? '<img class="prod" src="' + esc(p.img) + '" alt="' + esc(p.title) + '" loading="lazy" />'
+            : icon(p.icon, m.color);
+          var shipHtml, totalHtml;
+          if (p.ship === 0){ shipHtml = '<span class="ship free">送料無料</span>'; totalHtml = '<span class="total">送料込み 合計 ' + yen(total(p)) + "</span>"; }
+          else if (p.ship == null){ shipHtml = '<span class="ship">送料は商品ページで確認</span>'; totalHtml = '<span class="total">合計は商品ページで確認できます</span>'; }
+          else { shipHtml = '<span class="ship">+送料 ' + yen(p.ship) + "</span>"; totalHtml = '<span class="total">送料込み 合計 ' + yen(total(p)) + "</span>"; }
+          var badgeHtml = "";
+          if (p.ship === 0) badgeHtml += '<span class="bdg free">送料無料</span>';
+          if (live) badgeHtml += '<span class="bdg free">本物データ</span>';
+          if (p.note) badgeHtml += '<span class="bdg ' + (/ポイント|クーポン|還元/.test(p.note) ? "point" : "note") + '">' + esc(p.note) + "</span>";
+          html += '<article class="card">'
+            + '<div class="thumb" style="background:' + (p.img ? "#ffffff" : (p.hue || "#ffffff")) + '">' + thumbInner
+            + (cheap.has(p.id) ? '<span class="cheapest">最安</span>' : "")
+            + '<button class="favbtn' + (favs.has(fid) ? " on" : "") + '" type="button" data-fav="' + fid + '" aria-label="お気に入り">' + (favs.has(fid) ? "★" : "☆") + "</button></div>"
+            + '<div class="cardbody"><div class="top"><span class="mbadge"><i style="background:' + m.color + '"></i>' + m.name + '</span><span class="cond' + (p.cond === "used" ? " used" : "") + '">' + (p.cond === "used" ? "中古" : "新品") + "</span></div>"
+            + '<h3><a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(p.title) + "</a></h3>"
+            + '<span class="shop">' + esc(p.shop) + "</span>"
+            + (p.rating ? '<div class="starline">' + stars(p.rating) + "<span>" + p.rating.toFixed(1) + '</span><span class="rcount">(' + p.reviews.toLocaleString("ja-JP") + "件)</span></div>" : "")
+            + (badgeHtml ? '<div class="badges">' + badgeHtml + "</div>" : "")
+            + '<div class="priceline"><span class="price"><span class="yen-mark">¥</span>' + p.price.toLocaleString("ja-JP") + '<span class="tax">税込</span></span>'
+            + shipHtml + totalHtml + "</div>"
+            + '<a class="buybtn" href="' + esc(url) + '" target="_blank" rel="noopener">' + m.name + "で見る</a>"
+            + "</div></article>";
+        });
+        $("grid").innerHTML = html;
+        Array.prototype.forEach.call($("grid").querySelectorAll("[data-fav]"), function(btn){
+          btn.addEventListener("click", function(){
+            var id = btn.getAttribute("data-fav");
+            if (favs.has(id)) favs.delete(id); else favs.add(id);
+            syncFavCounts();
+            renderGrid();
+          });
+        });
+      }
+
+      function syncFavCounts(){
+        $("favCount").textContent = favs.size;
+        $("headFavCount").textContent = favs.size;
+      }
+
+      function renderLinks(){
+        var q = state.q || "";
+        $("amazonLink").href = MALLS.amazon.searchUrl(q);
+        $("amazonLink").textContent = q ? "Amazonで「" + q + "」を探す →" : "Amazonで探す →";
+        $("mercariLink").href = MALLS.mercari.searchUrl(q);
+        $("mercariLink").textContent = q ? "メルカリで「" + q + "」を探す →" : "メルカリで探す →";
+      }
+
+      function render(){ renderMalls(); renderPills(); renderCompare(); renderGrid(); renderLinks(); }
+
+      /* ---------- live API transport (iMac relay) ----------
+         Yahoo Shopping API V3 sends no CORS header, so a browser cannot read
+         it directly from a static page. This page therefore asks the relay
+         server on the user's iMac (Tailscale Serve :8445 -> local proxy),
+         which holds the Client ID, calls Yahoo server-side, and returns the
+         V3 JSON unchanged with CORS + Private-Network headers attached.
+         Only the search query is sent to the iMac relay — nothing else. */
+      function fetchText(url, ms){
+        return new Promise(function(resolve, reject){
+          var ctrl = ("AbortController" in window) ? new AbortController() : null;
+          var timer = setTimeout(function(){ if (ctrl) ctrl.abort(); reject(new Error("timeout")); }, ms || 12000);
+          fetch(url, ctrl ? { signal: ctrl.signal } : {}).then(function(res){
+            if (!res.ok) throw new Error("http " + res.status);
+            return res.text();
+          }).then(function(text){ clearTimeout(timer); resolve(text); }, function(err){ clearTimeout(timer); reject(err); });
+        });
+      }
+
+      function fetchApiJson(apiUrl, isValid){
+        return fetchText(apiUrl, 15000).then(function(text){
+          var d = JSON.parse(String(text).trim());
+          if (isValid && !isValid(d)) throw new Error("unexpected response");
+          return d;
+        });
+      }
+
+      function fetchYahoo(q){
+        var url = RELAY_YAHOO_URL + "?query=" + encodeURIComponent(q) + "&results=20&sort=" + encodeURIComponent("-score");
+        return fetchApiJson(url, function(d){ return !!(d && d.hits); }).then(function(data){
+          var hits = (data && data.hits) || [];
+          return hits.map(function(h, i){
+            var shipName = h.shipping && h.shipping.name ? h.shipping.name : "";
+            return {
+              id: "y" + i, group: null, title: h.name || "", mall: "yahoo",
+              shop: (h.seller && h.seller.name) || "",
+              price: Number(h.price) || 0,
+              ship: /無料/.test(shipName) ? 0 : null,
+              cond: h.condition === "used" ? "used" : "new",
+              rating: h.review && h.review.rate ? Number(h.review.rate) : 0,
+              reviews: h.review && h.review.count ? Number(h.review.count) : 0,
+              img: h.image && h.image.medium ? h.image.medium : null,
+              url: h.url || null,
+              note: h.headLine || shipName || ""
+            };
+          });
+        });
+      }
+
+      function fetchRakuten(q){
+        var url = "https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601?format=json&applicationId=" + encodeURIComponent(keys.rakutenId)
+          + "&accessKey=" + encodeURIComponent(keys.rakutenKey)
+          + "&keyword=" + encodeURIComponent(q) + "&hits=24&sort=standard";
+        return fetchApiJson(url, function(d){ return !!(d && (d.Items || d.error)); }).then(function(data){
+          if (data && data.error) throw new Error(data.error_description || data.error);
+          var items = (data && data.Items) || [];
+          return items.map(function(w, i){
+            var it = w.Item || {};
+            var img = it.mediumImageUrls && it.mediumImageUrls[0] ? it.mediumImageUrls[0].imageUrl : null;
+            return {
+              id: "r" + i, group: null, title: it.itemName || "", mall: "rakuten",
+              shop: it.shopName || "",
+              price: Number(it.itemPrice) || 0,
+              ship: null,
+              cond: "new",
+              rating: it.reviewAverage ? parseFloat(it.reviewAverage) : 0,
+              reviews: it.reviewCount ? Number(it.reviewCount) : 0,
+              img: img, url: it.itemUrl || null,
+              note: it.catchcopy || ""
+            };
+          });
+        });
+      }
+
+      function connected(){ return true; /* Yahoo via iMac relay is always available to try; Rakuten joins when its keys exist. */ }
+
+      function setStatus(msg, cls){
+        var el = $("apiStatus");
+        el.textContent = msg;
+        el.className = "apistatus" + (cls ? " " + cls : "");
+        $("liveStatus").classList.toggle("err", cls === "err");
+        if (cls !== "err") $("retryBtn").hidden = true;
+      }
+
+      var fetchSeq = 0;
+      var lastFetchQ = "ワイヤレスイヤホン";
+      function fetchLive(q, isRetry, award){
+        if (!connected()){ render(); return; }
+        lastFetchQ = q;
+        var seq = ++fetchSeq;
+        setStatus(isRetry ? "iMacサーバーへの接続をもう一度試しています…" : "iMacサーバー経由で本物データを検索中…");
+        var jobs = [], names = [];
+        jobs.push(fetchYahoo(q)); names.push("Yahoo!ショッピング（iMac経由）");
+        if (keys.rakutenId && keys.rakutenKey){ jobs.push(fetchRakuten(q)); names.push("楽天市場"); }
+        Promise.all(jobs.map(function(j){ return j.then(function(v){ return { ok:true, v:v }; }, function(e){ return { ok:false, v:[] }; }); })).then(function(results){
+          if (seq !== fetchSeq) return;
+          var all = [], okNames = [], failNames = [];
+          results.forEach(function(r, i){ if (r.ok){ all = all.concat(r.v); okNames.push(names[i]); } else failNames.push(names[i]); });
+          if (!all.length){
+            if (!isRetry){
+              /* one automatic retry before giving up */
+              setTimeout(function(){ if (seq === fetchSeq) fetchLive(q, true, award); }, 1200);
+              return;
+            }
+            live = null;
+            setStatus("iMacサーバーから本物データを取得できませんでした（" + failNames.join("・") + "）。iMacが起動しているか・中継サーバーが動いているかを確認して「もう一度試す」を押してください。いまはサンプルを表示しています。", "err");
+            $("retryBtn").hidden = false;
+            render();
+            if (award) tryAwardSearchPoint(q);
+            return;
+          }
+          live = all;
+          liveQuery = q;
+          setStatus("接続中：" + okNames.join("・") + " の本物データを表示しています（" + all.length + "件）" + (failNames.length ? "／ " + failNames.join("・") + " は取得に失敗しました" : ""), "ok");
+          render();
+          if (award) tryAwardSearchPoint(q);
+        });
+      }
+
+      function doSearch(){
+        state.q = $("q").value.trim();
+        if (connected()) fetchLive(state.q || "ワイヤレスイヤホン", false, true);
+        else { render(); tryAwardSearchPoint(state.q || "ワイヤレスイヤホン"); }
+      }
+
+      $("searchForm").addEventListener("submit", function(e){
+        e.preventDefault();
+        doSearch();
+        $("resultTitle").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      $("q").addEventListener("input", function(){
+        state.q = $("q").value.trim();
+        if (live){ renderMalls(); renderPills(); renderLinks(); }
+        else render();
+      });
+      Array.prototype.forEach.call($("chips").querySelectorAll("[data-kw]"), function(chip){
+        chip.addEventListener("click", function(){
+          $("q").value = chip.getAttribute("data-kw");
+          state.q = chip.getAttribute("data-kw");
+          if (connected()) fetchLive(state.q, false, true);
+          else { render(); tryAwardSearchPoint(state.q); }
+        });
+      });
+      $("condSel").addEventListener("change", function(){ state.cond = this.value; render(); });
+      $("priceSel").addEventListener("change", function(){ state.price = Number(this.value); render(); });
+      $("sortSel").addEventListener("change", function(){ state.sort = this.value; render(); });
+      function toggleFavOnly(source){
+        state.favOnly = !state.favOnly;
+        $("favToggle").setAttribute("aria-pressed", state.favOnly);
+        $("headFav").setAttribute("aria-pressed", state.favOnly);
+        render();
+      }
+      $("favToggle").addEventListener("click", function(){ toggleFavOnly(this); });
+      $("headFav").addEventListener("click", function(){ toggleFavOnly(this); });
+      $("resetBtn").addEventListener("click", function(){
+        state = { q:"", mall:"all", cond:"all", price:0, sort:"reco", favOnly:false };
+        $("q").value = ""; $("condSel").value = "all"; $("priceSel").value = "0"; $("sortSel").value = "reco";
+        $("favToggle").setAttribute("aria-pressed", "false");
+        $("headFav").setAttribute("aria-pressed", "false");
+        render();
+      });
+
+      $("retryBtn").addEventListener("click", function(){
+        fetchLive($("q").value.trim() || lastFetchQ);
+      });
+
+      render();
+      renderAuthUI();
+      initAuth();
+      /* iMac relay: connect automatically and load real products on open.
+         award is not passed here, so the automatic load earns no points. */
+      fetchLive(state.q || "ワイヤレスイヤホン");
+    </script>
+  </body>
+</html>
