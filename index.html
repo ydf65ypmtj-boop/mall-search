@@ -207,6 +207,12 @@
       .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
       @media (prefers-reduced-motion: reduce){ .toast{ transition:none; } }
 
+      /* ============ home (history / recommendations / guide) ============ */
+      [hidden]{ display:none !important; }
+      .guide{ margin-top:16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; box-shadow:var(--shadow); }
+      .guide b{ font-size:15.5px; display:block; margin-bottom:5px; }
+      .guide p{ margin:0; font-size:13.5px; color:var(--ink2); }
+
       /* ============ phone: 2-column product grid ============ */
       @media (max-width:560px){
         .grid{ grid-template-columns:repeat(2,1fr); gap:8px; }
@@ -271,9 +277,11 @@
 
       <div class="livestatus" id="liveStatus" role="status">
         <span class="dotlive" aria-hidden="true"></span>
-        <span class="apistatus" id="apiStatus">iMacサーバー経由で Yahoo!ショッピングに接続中…</span>
+        <span class="apistatus" id="apiStatus">検索すると、iMacサーバー経由で Yahoo!ショッピングの本物データを表示します</span>
         <button class="retrybtn" id="retryBtn" type="button" hidden>もう一度試す</button>
       </div>
+
+      <div class="chips" id="historyChips" hidden></div>
 
       <div class="chips" id="chips">
         <span>人気の検索ワード</span>
@@ -284,9 +292,21 @@
         <button class="chip" type="button" data-kw="リュック">リュック</button>
       </div>
 
+      <div id="homeArea">
+        <section id="recoSection" hidden>
+          <h2 class="section-title">あなたへのおすすめ</h2>
+          <p class="section-sub" id="recoSub">過去の検索から集めた商品です。</p>
+          <div class="grid" id="recoGrid"></div>
+        </section>
+        <div class="guide" id="guideBox" hidden>
+          <b>使い方</b>
+          <p>上の検索バーに探したいものを入れて検索すると、楽天市場・Yahoo!ショッピング・ヤフオクの価格をまとめて比べられます。気になる商品はカードの ☆ でお気に入りに残せます。検索した言葉はこの端末に保存され、次に開いたとき「過去の検索」と、履歴から選んだ「あなたへのおすすめ」が表示されます。</p>
+        </div>
+      </div>
+
       <nav id="mallStrip" aria-label="対応モール" hidden></nav>
 
-      <div class="controls">
+      <div class="controls" id="controlsBar" hidden>
         <label for="condSel">状態</label>
         <select id="condSel">
           <option value="all">すべて</option>
@@ -312,6 +332,7 @@
         <button class="favtoggle" id="favToggle" type="button" aria-pressed="false">★ お気に入りだけ (<span id="favCount">0</span>)</button>
       </div>
 
+      <div id="resultsArea" hidden>
       <section id="compareSection">
         <h2 class="section-title">同じ商品の価格くらべ</h2>
         <p class="section-sub">送料込みの合計で比べています。いちばん安いモールには「最安」マークが付きます。</p>
@@ -327,6 +348,7 @@
         <b>条件に合う商品が見つかりませんでした</b>
         キーワードや絞り込みを変えて、もう一度探してみてください。下のAmazon・メルカリでも同じ言葉で探せます。
         <br /><button type="button" id="resetBtn">絞り込みをリセット</button>
+      </div>
       </div>
 
       <h2 class="section-title">Amazon・メルカリでも探す</h2>
@@ -345,7 +367,7 @@
       </div>
 
       <h2 class="section-title">本物の商品データへの道のり</h2>
-      <p class="section-sub">Yahoo!ショッピングは iMac の中継サーバー経由で取得します。開くと自動で中継に接続し、本物の商品・価格・画像を表示します。楽天はキーが取れたら同じ中継に接続します。</p>
+      <p class="section-sub">Yahoo!ショッピングは iMac の中継サーバー経由で取得します。検索すると中継に接続し、本物の商品・価格・画像を表示します。楽天はキーが取れたら同じ中継に接続します。</p>
       <div class="steps">
         <div class="step">
           <span class="num">STEP 1</span>
@@ -772,6 +794,155 @@
 
       function render(){ renderMalls(); renderPills(); renderCompare(); renderGrid(); renderLinks(); }
 
+      /* ---------- search history (this device only, localStorage) ----------
+         Each user-initiated search records { q, norm, count, last }.
+         Same word (ignoring case / extra spaces) merges into one entry.
+         At most 20 entries are kept, oldest dropped first. */
+      var HISTORY_KEY = "mallSearchHistory.v1";
+      var HISTORY_MAX = 20;
+      function loadHistory(){
+        try {
+          var raw = localStorage.getItem(HISTORY_KEY);
+          var arr = raw ? JSON.parse(raw) : [];
+          if (!Array.isArray(arr)) return [];
+          return arr.filter(function(h){ return h && typeof h.q === "string" && h.q; }).slice(0, HISTORY_MAX);
+        } catch (e) { return []; }
+      }
+      function recordHistory(rawQ){
+        var disp = String(rawQ == null ? "" : rawQ).trim().replace(/\s+/g, " ");
+        if (!disp) return;
+        var norm = disp.toLowerCase();
+        var hist = loadHistory();
+        var idx = -1;
+        hist.forEach(function(h, i){ if ((h.norm || String(h.q).toLowerCase()) === norm) idx = i; });
+        var now = Date.now();
+        if (idx >= 0){
+          var e = hist.splice(idx, 1)[0];
+          e.q = disp; e.norm = norm; e.count = (e.count || 1) + 1; e.last = now;
+          hist.unshift(e);
+        } else {
+          hist.unshift({ q: disp, norm: norm, count: 1, last: now });
+        }
+        try { localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(0, HISTORY_MAX))); } catch (e2) {}
+      }
+      function renderHistoryChips(){
+        var box = $("historyChips");
+        var hist = loadHistory();
+        if (!hist.length){ box.hidden = true; box.innerHTML = ""; return; }
+        var html = "<span>過去の検索</span>";
+        hist.forEach(function(h){
+          html += '<button class="chip" type="button" data-hist="' + esc(h.q) + '">' + esc(h.q) + "</button>";
+        });
+        box.innerHTML = html;
+        box.hidden = false;
+        Array.prototype.forEach.call(box.querySelectorAll("[data-hist]"), function(chip){
+          chip.addEventListener("click", function(){
+            $("q").value = chip.getAttribute("data-hist");
+            doSearch();
+            $("resultTitle").scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+        });
+      }
+
+      /* ---------- home view / results view ---------- */
+      var recoItems = null; /* null = not fetched yet */
+      function showHomeView(){
+        $("homeArea").hidden = false;
+        $("resultsArea").hidden = true;
+        $("controlsBar").hidden = true;
+        renderHistoryChips();
+        var has = loadHistory().length > 0;
+        $("guideBox").hidden = has;
+        if (!has) $("recoSection").hidden = true;
+        else if (recoItems && recoItems.length) renderReco();
+      }
+      function showResultsView(){
+        $("homeArea").hidden = true;
+        $("resultsArea").hidden = false;
+        $("controlsBar").hidden = false;
+      }
+
+      /* ---------- recommendations from history ----------
+         Fetch the top history words (most frequent, then most recent,
+         up to 3) through the same Yahoo relay, de-duplicate and mix the
+         products. This is an automatic fetch: it never awards points,
+         and a word that fails to load is skipped silently. */
+      function loadRecommendations(){
+        var hist = loadHistory();
+        if (!hist.length) return;
+        var tops = hist.slice().sort(function(a, b){
+          return ((b.count || 1) - (a.count || 1)) || ((b.last || 0) - (a.last || 0));
+        }).slice(0, 3);
+        $("recoSub").textContent = "過去の検索「" + tops.map(function(h){ return h.q; }).join("」「") + "」から集めた商品です。";
+        var jobs = tops.map(function(h, wi){
+          return fetchYahoo(h.q).then(function(list){
+            return list.map(function(p){ var c = {}; for (var k in p) c[k] = p[k]; c.id = "reco-" + wi + "-" + p.id; return c; });
+          }, function(){ return []; });
+        });
+        Promise.all(jobs).then(function(lists){
+          var seen = {}, out = [];
+          var maxLen = 0;
+          lists.forEach(function(l){ if (l.length > maxLen) maxLen = l.length; });
+          for (var i = 0; i < maxLen && out.length < 12; i++){
+            lists.forEach(function(l){
+              if (out.length >= 12) return;
+              var p = l[i];
+              if (!p) return;
+              var key = p.url || (p.title + "|" + p.price);
+              if (seen[key]) return;
+              seen[key] = 1;
+              out.push(p);
+            });
+          }
+          recoItems = out;
+          if (!$("homeArea").hidden) renderReco();
+        });
+      }
+      function recoCardHtml(p){
+        var m = MALLS[p.mall];
+        var fid = String(p.id);
+        var url = p.url || m.searchUrl(p.title);
+        var thumbInner = p.img
+          ? '<img class="prod" src="' + esc(p.img) + '" alt="' + esc(p.title) + '" loading="lazy" />'
+          : icon(p.icon, m.color);
+        var shipHtml, totalHtml;
+        if (p.ship === 0){ shipHtml = '<span class="ship free">送料無料</span>'; totalHtml = '<span class="total">送料込み 合計 ' + yen(total(p)) + "</span>"; }
+        else if (p.ship == null){ shipHtml = '<span class="ship">送料は商品ページで確認</span>'; totalHtml = '<span class="total">合計は商品ページで確認できます</span>'; }
+        else { shipHtml = '<span class="ship">+送料 ' + yen(p.ship) + "</span>"; totalHtml = '<span class="total">送料込み 合計 ' + yen(total(p)) + "</span>"; }
+        var badgeHtml = "";
+        if (p.ship === 0) badgeHtml += '<span class="bdg free">送料無料</span>';
+        badgeHtml += '<span class="bdg free">本物データ</span>';
+        if (p.note) badgeHtml += '<span class="bdg ' + (/ポイント|クーポン|還元/.test(p.note) ? "point" : "note") + '">' + esc(p.note) + "</span>";
+        return '<article class="card">'
+          + '<div class="thumb" style="background:' + (p.img ? "#ffffff" : (p.hue || "#ffffff")) + '">' + thumbInner
+          + '<button class="favbtn' + (favs.has(fid) ? " on" : "") + '" type="button" data-fav="' + fid + '" aria-label="お気に入り">' + (favs.has(fid) ? "★" : "☆") + "</button></div>"
+          + '<div class="cardbody"><div class="top"><span class="mbadge"><i style="background:' + m.color + '"></i>' + m.name + '</span><span class="cond' + (p.cond === "used" ? " used" : "") + '">' + (p.cond === "used" ? "中古" : "新品") + "</span></div>"
+          + '<h3><a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(p.title) + "</a></h3>"
+          + '<span class="shop">' + esc(p.shop) + "</span>"
+          + (p.rating ? '<div class="starline">' + stars(p.rating) + "<span>" + p.rating.toFixed(1) + '</span><span class="rcount">(' + p.reviews.toLocaleString("ja-JP") + "件)</span></div>" : "")
+          + (badgeHtml ? '<div class="badges">' + badgeHtml + "</div>" : "")
+          + '<div class="priceline"><span class="price"><span class="yen-mark">¥</span>' + p.price.toLocaleString("ja-JP") + '<span class="tax">税込</span></span>'
+          + shipHtml + totalHtml + "</div>"
+          + '<a class="buybtn" href="' + esc(url) + '" target="_blank" rel="noopener">' + m.name + "で見る</a>"
+          + "</div></article>";
+      }
+      function renderReco(){
+        if (!recoItems || !recoItems.length){ $("recoSection").hidden = true; return; }
+        var html = "";
+        recoItems.forEach(function(p){ html += recoCardHtml(p); });
+        $("recoGrid").innerHTML = html;
+        $("recoSection").hidden = false;
+        Array.prototype.forEach.call($("recoGrid").querySelectorAll("[data-fav]"), function(btn){
+          btn.addEventListener("click", function(){
+            var id = btn.getAttribute("data-fav");
+            if (favs.has(id)) favs.delete(id); else favs.add(id);
+            syncFavCounts();
+            renderReco();
+            renderGrid();
+          });
+        });
+      }
+
       /* ---------- live API transport (iMac relay) ----------
          Yahoo Shopping API V3 sends no CORS header, so a browser cannot read
          it directly from a static page. This page therefore asks the relay
@@ -892,8 +1063,11 @@
 
       function doSearch(){
         state.q = $("q").value.trim();
-        if (connected()) fetchLive(state.q || "ワイヤレスイヤホン", false, true);
-        else { render(); tryAwardSearchPoint(state.q || "ワイヤレスイヤホン"); }
+        var effective = state.q || "ワイヤレスイヤホン";
+        recordHistory(effective);
+        showResultsView();
+        if (connected()) fetchLive(effective, false, true);
+        else { render(); tryAwardSearchPoint(effective); }
       }
 
       $("searchForm").addEventListener("submit", function(e){
@@ -909,9 +1083,7 @@
       Array.prototype.forEach.call($("chips").querySelectorAll("[data-kw]"), function(chip){
         chip.addEventListener("click", function(){
           $("q").value = chip.getAttribute("data-kw");
-          state.q = chip.getAttribute("data-kw");
-          if (connected()) fetchLive(state.q, false, true);
-          else { render(); tryAwardSearchPoint(state.q); }
+          doSearch();
         });
       });
       $("condSel").addEventListener("change", function(){ state.cond = this.value; render(); });
@@ -931,6 +1103,7 @@
         $("favToggle").setAttribute("aria-pressed", "false");
         $("headFav").setAttribute("aria-pressed", "false");
         render();
+        showHomeView();
       });
 
       $("retryBtn").addEventListener("click", function(){
@@ -940,9 +1113,13 @@
       render();
       renderAuthUI();
       initAuth();
-      /* iMac relay: connect automatically and load real products on open.
-         award is not passed here, so the automatic load earns no points. */
-      fetchLive(state.q || "ワイヤレスイヤホン");
+      /* On open: no automatic search. Show the home view — past-search
+         chips plus history-based recommendations when this device has
+         history, or the how-to guide when it does not. Recommendation
+         fetches go through fetchYahoo directly (never fetchLive with
+         award), so they earn no points. */
+      showHomeView();
+      if (loadHistory().length) loadRecommendations();
     </script>
   </body>
 </html>
